@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Health Tracker — Architecture</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Sora:wght@300;400;600;700&display=swap');
+
+  :root {
+    --bg: #0a0e1a;
+    --surface: #111827;
+    --surface2: #1a2235;
+    --border: #1e2d45;
+    --accent-blue: #3b82f6;
+    --accent-teal: #14b8a6;
+    --accent-purple: #8b5cf6;
+    --accent-green: #10b981;
+    --accent-orange: #f59e0b;
+    --accent-red: #ef4444;
+    --text: #e2e8f0;
+    --text-muted: #64748b;
+    --text-dim: #94a3b8;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Sora', sans-serif;
+    min-height: 100vh;
+    padding: 2rem;
+    overflow-x: hidden;
+  }
+
+  .bg-grid {
+    position: fixed;
+    inset: 0;
+    background-image: 
+      linear-gradient(rgba(59,130,246,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(59,130,246,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .content { position: relative; z-index: 1; max-width: 1100px; margin: 0 auto; }
+
+  header { text-align: center; margin-bottom: 3rem; }
+  header h1 {
+    font-size: 2.2rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    background: linear-gradient(135deg, #3b82f6, #14b8a6);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 0.5rem;
+  }
+  header p { color: var(--text-muted); font-size: 0.9rem; font-family: 'DM Mono', monospace; }
+
+  .diagram {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+
+  .layer {
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 1.5rem;
+    background: var(--surface);
+    position: relative;
+    animation: fadeUp 0.5s ease both;
+  }
+  .layer:nth-child(1) { animation-delay: 0.1s; }
+  .layer:nth-child(2) { animation-delay: 0.2s; }
+  .layer:nth-child(3) { animation-delay: 0.3s; }
+  .layer:nth-child(4) { animation-delay: 0.4s; }
+  .layer:nth-child(5) { animation-delay: 0.5s; }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .layer-label {
+    font-size: 0.7rem;
+    font-family: 'DM Mono', monospace;
+    font-weight: 500;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    margin-bottom: 1.2rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .layer-label::before {
+    content: '';
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: currentColor;
+    box-shadow: 0 0 8px currentColor;
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  .layer.frontend .layer-label { color: var(--accent-blue); }
+  .layer.api .layer-label { color: var(--accent-teal); }
+  .layer.backend .layer-label { color: var(--accent-purple); }
+  .layer.db .layer-label { color: var(--accent-green); }
+  .layer.infra .layer-label { color: var(--accent-orange); }
+
+  .layer.frontend { border-color: rgba(59,130,246,0.3); }
+  .layer.api { border-color: rgba(20,184,166,0.3); background: rgba(20,184,166,0.03); }
+  .layer.backend { border-color: rgba(139,92,246,0.3); }
+  .layer.db { border-color: rgba(16,185,129,0.3); }
+  .layer.infra { border-color: rgba(245,158,11,0.3); }
+
+  .nodes {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+
+  .node {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 0.75rem 1rem;
+    flex: 1;
+    min-width: 160px;
+    transition: all 0.2s ease;
+    cursor: default;
+  }
+  .node:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+  }
+  .node-title {
+    font-size: 0.8rem;
+    font-weight: 600;
+    margin-bottom: 0.4rem;
+    color: var(--text);
+  }
+  .node-items {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+  }
+  .node-items li {
+    font-size: 0.7rem;
+    color: var(--text-dim);
+    font-family: 'DM Mono', monospace;
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+  }
+  .node-items li::before {
+    content: '›';
+    color: var(--text-muted);
+  }
+
+  .node.blue { border-color: rgba(59,130,246,0.4); }
+  .node.blue .node-title { color: #93c5fd; }
+  .node.teal { border-color: rgba(20,184,166,0.4); }
+  .node.teal .node-title { color: #5eead4; }
+  .node.purple { border-color: rgba(139,92,246,0.4); }
+  .node.purple .node-title { color: #c4b5fd; }
+  .node.green { border-color: rgba(16,185,129,0.4); }
+  .node.green .node-title { color: #6ee7b7; }
+  .node.orange { border-color: rgba(245,158,11,0.4); }
+  .node.orange .node-title { color: #fcd34d; }
+  .node.red { border-color: rgba(239,68,68,0.4); }
+  .node.red .node-title { color: #fca5a5; }
+
+  .connector {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--text-muted);
+    font-size: 0.7rem;
+    font-family: 'DM Mono', monospace;
+    margin: -0.5rem 0;
+    position: relative;
+    z-index: 2;
+  }
+  .connector::before, .connector::after {
+    content: '';
+    height: 20px;
+    width: 1px;
+    background: linear-gradient(to bottom, transparent, var(--border), transparent);
+  }
+  .connector .arrow {
+    width: 24px;
+    height: 24px;
+    border: 1px solid var(--border);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.8rem;
+    background: var(--surface);
+  }
+
+  .stack-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+  }
+  .badge {
+    font-size: 0.65rem;
+    font-family: 'DM Mono', monospace;
+    padding: 0.2rem 0.6rem;
+    border-radius: 100px;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    background: var(--surface2);
+  }
+
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    justify-content: center;
+    margin-top: 2rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--border);
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    font-family: 'DM Mono', monospace;
+  }
+  .legend-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+  }
+</style>
+</head>
+<body>
+<div class="bg-grid"></div>
+<div class="content">
+  <header>
+    <h1>🩺 Health Tracker</h1>
+    <p>system architecture · personal health platform · fastapi + next.js + llm</p>
+  </header>
+
+  <div class="diagram">
+
+    <!-- Frontend Layer -->
+    <div class="layer frontend">
+      <div class="layer-label">Frontend — Next.js + Clerk + Tailwind</div>
+      <div class="nodes">
+        <div class="node blue">
+          <div class="node-title">Patient UI</div>
+          <ul class="node-items">
+            <li>Health log & vitals</li>
+            <li>AI chat (consumer)</li>
+            <li>DNA context toggle</li>
+            <li>Lab report selector</li>
+            <li>Mobile-optimized layout</li>
+          </ul>
+        </div>
+        <div class="node blue">
+          <div class="node-title">Provider UI</div>
+          <ul class="node-items">
+            <li>Clinical prompt mode</li>
+            <li>Model selector (GPT / Claude)</li>
+            <li>Elevated token limits</li>
+            <li>Technical context view</li>
+            <li>Full audit access</li>
+          </ul>
+        </div>
+        <div class="node blue">
+          <div class="node-title">Auth — Clerk</div>
+          <ul class="node-items">
+            <li>Role-based access</li>
+            <li>Patient / Provider claims</li>
+            <li>Session management</li>
+            <li>JWT token passing</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="connector">
+      <div class="arrow">↕</div>
+      <span>HTTPS / REST API</span>
+    </div>
+
+    <!-- Backend Layer -->
+    <div class="layer backend">
+      <div class="layer-label">Backend — FastAPI (Python)</div>
+      <div class="nodes">
+        <div class="node purple">
+          <div class="node-title">LLM Chat Engine</div>
+          <ul class="node-items">
+            <li>GPT + Claude Opus</li>
+            <li>Model selection per session</li>
+            <li>Medical context injection</li>
+            <li>Topic classifier guard</li>
+            <li>Conversation history</li>
+          </ul>
+        </div>
+        <div class="node purple">
+          <div class="node-title">Registros API</div>
+          <ul class="node-items">
+            <li>Vitals / health entries</li>
+            <li>CSV import / export</li>
+            <li>Round-trip compatibility</li>
+            <li>Medical profile CRUD</li>
+          </ul>
+        </div>
+        <div class="node purple">
+          <div class="node-title">File Services</div>
+          <ul class="node-items">
+            <li>DNA file upload + parsing</li>
+            <li>Lab report integration</li>
+            <li>Raw data → chat context</li>
+            <li>PDF generation</li>
+          </ul>
+        </div>
+        <div class="node red">
+          <div class="node-title">Security Layer</div>
+          <ul class="node-items">
+            <li>Per-user data isolation</li>
+            <li>PHI scrubbing</li>
+            <li>Audit logging</li>
+            <li>Role enforcement</li>
+          </ul>
+        </div>
+        <div class="node orange">
+          <div class="node-title">Platform Services</div>
+          <ul class="node-items">
+            <li>Stripe credit purchases</li>
+            <li>Email service</li>
+            <li>News + research routes</li>
+            <li>Auto-migrations</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="connector">
+      <div class="arrow">↕</div>
+      <span>SQLAlchemy ORM</span>
+    </div>
+
+    <!-- DB Layer -->
+    <div class="layer db">
+      <div class="layer-label">Data — PostgreSQL</div>
+      <div class="nodes">
+        <div class="node green">
+          <div class="node-title">Health Records</div>
+          <ul class="node-items">
+            <li>Registros (vitals)</li>
+            <li>Medical profiles</li>
+            <li>Lab reports</li>
+          </ul>
+        </div>
+        <div class="node green">
+          <div class="node-title">AI / Chat State</div>
+          <ul class="node-items">
+            <li>Conversation history</li>
+            <li>DNA raw data</li>
+            <li>Context snapshots</li>
+          </ul>
+        </div>
+        <div class="node green">
+          <div class="node-title">Platform Data</div>
+          <ul class="node-items">
+            <li>User credits (Stripe)</li>
+            <li>Audit log entries</li>
+            <li>Migration state</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- External APIs -->
+    <div class="layer api">
+      <div class="layer-label">External APIs</div>
+      <div class="nodes">
+        <div class="node teal">
+          <div class="node-title">OpenAI API</div>
+          <ul class="node-items">
+            <li>GPT models</li>
+            <li>Chat completions</li>
+          </ul>
+        </div>
+        <div class="node teal">
+          <div class="node-title">Anthropic API</div>
+          <ul class="node-items">
+            <li>Claude Opus</li>
+            <li>Provider mode</li>
+          </ul>
+        </div>
+        <div class="node teal">
+          <div class="node-title">Stripe</div>
+          <ul class="node-items">
+            <li>Credit purchases</li>
+            <li>Webhook events</li>
+          </ul>
+        </div>
+        <div class="node teal">
+          <div class="node-title">Clerk</div>
+          <ul class="node-items">
+            <li>Auth provider</li>
+            <li>Role claims</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- Infra Layer -->
+    <div class="layer infra">
+      <div class="layer-label">Infrastructure — Railway + Docker</div>
+      <div class="nodes">
+        <div class="node orange">
+          <div class="node-title">Railway Deployment</div>
+          <ul class="node-items">
+            <li>Procfile + railway.json</li>
+            <li>.next/cache optimized build</li>
+            <li>Managed PostgreSQL</li>
+            <li>Env-based config</li>
+          </ul>
+        </div>
+        <div class="node orange">
+          <div class="node-title">Docker Compose (Local)</div>
+          <ul class="node-items">
+            <li>FastAPI service</li>
+            <li>Next.js service</li>
+            <li>Postgres container</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="legend">
+    <div class="legend-item"><div class="legend-dot" style="background:#3b82f6"></div>Frontend</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#8b5cf6"></div>Backend API</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#10b981"></div>Database</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#14b8a6"></div>External Services</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#f59e0b"></div>Infrastructure</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#ef4444"></div>Security</div>
+  </div>
+
+</div>
+</body>
+</html>
