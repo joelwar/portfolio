@@ -56,7 +56,7 @@ The system enforces strict **data isolation**, **PHI scrubbing**, and **audit lo
 
               Deployed on Railway via Docker Compose
 ```
-
+For better visual: https://htmlpreview.github.io/?https://github.com/joelwar/portfolio/blob/main/docs/health-tracker-architecture.html
 ---
 
 ## Key Features
